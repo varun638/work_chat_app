@@ -1,10 +1,13 @@
-import { X } from "lucide-react";
+import { X, Users } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import { useState } from "react";
+import GroupMembersModal from "./GroupMembersModal";
 
 const ChatHeader = () => {
   const { selectedUser, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   return (
     <div className="p-2.5 border-b border-base-300">
@@ -20,16 +23,25 @@ const ChatHeader = () => {
           )}
 
           {/* User info */}
-          <div>
+          <div className="flex items-center gap-2">
             <h3 className="font-medium">
-              {selectedUser.type === 'group' ? selectedUser.groupname : selectedUser.fullName}
+              {selectedUser.type === 'group' ? selectedUser.name : selectedUser.fullName}
             </h3>
-            <p className="text-sm text-base-content/70">
-              {selectedUser.type === 'group' 
-                ? selectedUser.groupname // Show the group name instead of status for group chats
-                : (onlineUsers.includes(selectedUser._id) ? "Online" : "Offline")}
-            </p>
+            {selectedUser.type === 'group' && (
+              <button
+                onClick={() => setShowMembersModal(true)}
+                className="btn btn-ghost btn-sm btn-circle"
+                title="View members"
+              >
+                <Users className="w-4 h-4" />
+              </button>
+            )}
           </div>
+          <p className="text-sm text-base-content/70">
+            {selectedUser.type === 'group' 
+              ? `${selectedUser.members?.length || 0} members`
+              : (onlineUsers.includes(selectedUser._id) ? "Online" : "Offline")}
+          </p>
         </div>
 
         {/* Close button */}
@@ -37,6 +49,13 @@ const ChatHeader = () => {
           <X />
         </button>
       </div>
+
+      {/* Group Members Modal */}
+      <GroupMembersModal
+        isOpen={showMembersModal}
+        onClose={() => setShowMembersModal(false)}
+        group={selectedUser}
+      />
     </div>
   );
 };

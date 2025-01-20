@@ -1,103 +1,114 @@
-import { useState, useEffect } from 'react';
-import { X, UserMinus, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { X, Plus, Search } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import toast from 'react-hot-toast';
 
-const GroupMembersModal = ({ isOpen, onClose, groupId }) => {
-  const [members, setMembers] = useState([]);
-  const { getGroupMembers, removeMember, exitGroup, selectedUser } = useChatStore();
+const GroupChatModal = ({ isOpen, onClose }) => {
+  const [groupName, setGroupName] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { users, createGroup } = useChatStore();
 
-  useEffect(() => {
-    if (isOpen && groupId) {
-      fetchMembers();
+  const filteredUsers = users.filter(user => 
+    user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    !selectedUsers.find(selected => selected._id === user._id)
+  );
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      return toast.error('Please enter a group name');
     }
-  }, [isOpen, groupId]);
-
-  const fetchMembers = async () => {
-    try {
-      const data = await getGroupMembers(groupId);
-      setMembers(data);
-    } catch (error) {
-      toast.error('Failed to fetch members');
+    if (selectedUsers.length < 2) {
+      return toast.error('Please select at least 2 members');
     }
-  };
 
-  const handleRemoveMember = async (memberId) => {
     try {
-      await removeMember(groupId, memberId);
-      toast.success('Member removed successfully');
-      fetchMembers();
-    } catch (error) {
-      toast.error('Failed to remove member');
-    }
-  };
-
-  const handleExitGroup = async () => {
-    try {
-      await exitGroup(groupId);
-      toast.success('Left group successfully');
+      await createGroup({
+        name: groupName,
+        members: selectedUsers.map(user => user._id)
+      });
       onClose();
+      setGroupName('');
+      setSelectedUsers([]);
+      toast.success('Group created successfully!');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to exit group');
+      toast.error('Failed to create group');
     }
   };
 
   if (!isOpen) return null;
 
-  const isAdmin = selectedUser?.admin?._id === members.find(m => m.isAdmin)?._id;
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-base-100 rounded-lg w-[95%] max-w-md p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Group Members</h2>
+          {/* Header with # group name */}
+          <h2 className="text-lg font-semibold">
+            {groupName ? `# ${groupName}` : 'Create Group Chat'}
+          </h2>
           <button onClick={onClose} className="btn btn-ghost btn-sm btn-circle">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto">
-          {members.map((member) => (
-            <div
-              key={member._id}
-              className="flex items-center justify-between p-3 hover:bg-base-200 rounded-lg"
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={member.profilepic || "/avatar.png"}
-                  alt={member.fullName}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div>
-                  <p className="font-medium">{member.fullName}</p>
-                  <p className="text-sm text-base-content/70">{member.email}</p>
-                </div>
-              </div>
+        <input
+          type="text"
+          placeholder="Group Name"
+          className="input input-bordered w-full mb-4"
+          value={groupName}
+          onChange={(e) => setGroupName(e.target.value)}
+        />
 
-              {isAdmin && member._id !== selectedUser?.admin?._id && (
-                <button
-                  onClick={() => handleRemoveMember(member._id)}
-                  className="btn btn-ghost btn-sm btn-circle text-error"
-                >
-                  <UserMinus className="w-4 h-4" />
-                </button>
-              )}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {selectedUsers.map(user => (
+            <div 
+              key={user._id}
+              className="bg-primary/10 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2"
+            >
+              <span>{user.fullName}</span>
+              <button 
+                onClick={() => setSelectedUsers(prev => prev.filter(u => u._id !== user._id))}
+                className="hover:text-primary/80"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           ))}
         </div>
 
-        {!isAdmin && (
-          <button
-            onClick={handleExitGroup}
-            className="btn btn-error btn-sm mt-4 w-full gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Exit Group
-          </button>
-        )}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/50" />
+          <input
+            type="text"
+            placeholder="Search users..."
+            className="input input-bordered w-full pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="max-h-48 overflow-y-auto mb-4 space-y-2">
+          {filteredUsers.map(user => (
+            <button
+              key={user._id}
+              onClick={() => setSelectedUsers(prev => [...prev, user])}
+              className="flex items-center gap-3 w-full p-2 hover:bg-base-200 rounded-lg transition-colors"
+            >
+              <span className="flex-1 text-left">{user.fullName}</span>
+              <Plus className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
+
+        <button 
+          className="btn btn-primary w-full"
+          onClick={handleCreateGroup}
+        >
+          Create Group
+        </button>
       </div>
     </div>
   );
 };
 
-export default GroupMembersModal;
+export default GroupChatModal;

@@ -1,43 +1,70 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "../store/useAuthStore";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Plus, X, ArrowRight } from "lucide-react"; // Added ArrowRight icon
 import toast from "react-hot-toast";
 
 const StatusView = () => {
   const [statuses, setStatuses] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const { socket, user } = useAuthStore(); // Assume user info is stored here
+  const [selectedStatus, setSelectedStatus] = useState(null);
+  const [showStatusViewer, setShowStatusViewer] = useState(false);
+  const { socket, authUser } = useAuthStore();
+  const statusTimeoutRef = useRef(null);
 
   useEffect(() => {
     fetchStatuses();
-
-    // Set up polling every 30 seconds
-    const intervalId = setInterval(() => {
-      fetchStatuses();
-    }, 30000); // Refresh every 30 seconds
+    const intervalId = setInterval(fetchStatuses, 30000);
 
     if (socket) {
       socket.on("newStatus", (newStatus) => {
-        setStatuses((prev) => [newStatus, ...prev]); // Add new status at the beginning
+        // Append the new status to the end of the list for the appropriate user
+        setStatuses((prev) => {
+          const updatedStatuses = [...prev];
+          const userIndex = updatedStatuses.findIndex(
+            (group) => group.user._id === newStatus.userId._id
+          );
+  
+          if (userIndex !== -1) {
+            updatedStatuses[userIndex].statuses.unshift(newStatus); // Add new status to the end
+          } else {
+            updatedStatuses.unshift({
+              user: newStatus.userId,
+              statuses: [newStatus],
+            }); // If new user, create a new group for them at the end
+          }
+  
+          return updatedStatuses;
+        });
       });
     }
-
-    // Clean up interval on component unmount
+  
     return () => {
-      if (socket) {
-        socket.off("newStatus"); // Remove socket listener
-      }
-      clearInterval(intervalId); // Clear the interval when component unmounts
+      if (socket) socket.off("newStatus");
+      clearInterval(intervalId);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
     };
   }, [socket]);
+
 
   const fetchStatuses = async () => {
     try {
       setIsLoading(true);
       const res = await axiosInstance.get("/status");
-      setStatuses(res.data); // Update statuses with the fetched data
+      // Group statuses by user
+      const groupedStatuses = res.data.reduce((acc, status) => {
+        const userId = status.userId._id;
+        if (!acc[userId]) {
+          acc[userId] = {
+            user: status.userId,
+            statuses: [],
+          };
+        }
+        acc[userId].statuses.push(status);
+        return acc;
+      }, {});
+      setStatuses(Object.values(groupedStatuses));
     } catch (error) {
       toast.error("Failed to fetch statuses");
     } finally {
@@ -55,28 +82,25 @@ const StatusView = () => {
 
       reader.onloadend = async () => {
         const base64Content = reader.result;
-        const type = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : ""; // Check if it's image or video
+        const type =
+          file.type.startsWith("image/")
+            ? "image"
+            : file.type.startsWith("video/")
+            ? "video"
+            : "text";
 
-        if (type) {
-          // Send the status upload request
-          const res = await axiosInstance.post("/status/create", {
+        if (type !== "text") {
+          await axiosInstance.post("/status/create", {
             content: base64Content,
             type,
           });
           toast.success("Status uploaded successfully");
-
-          // Immediately update the UI with the new status
-          const newStatus = {
-            ...res.data,
-            userId: { fullName: user.fullName, ...user }, // Assuming user object is stored in useAuthStore
-          };
-          setStatuses((prev) => [newStatus, ...prev]); // Add the new status to the state
+          fetchStatuses();
         } else {
           toast.error("Unsupported file type");
         }
       };
 
-      // Read the file as base64
       reader.readAsDataURL(file);
     } catch (error) {
       toast.error("Failed to upload status");
@@ -85,12 +109,126 @@ const StatusView = () => {
     }
   };
 
-  // Function to handle the video playback timeout
-  const handleVideoTimeout = (e) => {
-    const videoElement = e.target;
-    setTimeout(() => {
-      videoElement.pause();
-    }, 30000); // Pause video after 30 seconds
+  const viewStatus = (userStatuses) => {
+    setSelectedStatus(userStatuses);
+    setShowStatusViewer(true);
+  };
+
+  const StatusViewer = () => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const statusRef = useRef(null);
+
+    useEffect(() => {
+      if (showStatusViewer) {
+        // Define how long each status will display
+        const duration =
+          selectedStatus.statuses[currentIndex].type === "video"
+            ? 30000 // 30 seconds for video
+            : 5000; // 5 seconds for image/text
+
+        // Set the timeout to automatically switch to the next status
+        statusTimeoutRef.current = setTimeout(() => {
+          if (currentIndex < selectedStatus.statuses.length - 1) {
+            setCurrentIndex(currentIndex + 1);
+          } else {
+            setShowStatusViewer(false); // Close viewer if it's the last status
+          }
+        }, duration);
+
+        // Clean up timeout on component unmount or when the index changes
+        return () => {
+          if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+        };
+      }
+    }, [currentIndex, showStatusViewer]); // Effect runs when `currentIndex` or `showStatusViewer` changes
+
+    const goToNextStatus = () => {
+      if (currentIndex < selectedStatus.statuses.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setShowStatusViewer(false); // Close viewer if it's the last status
+      }
+    };
+
+    if (!selectedStatus) return null;
+
+    const currentStatus = selectedStatus.statuses[currentIndex];
+
+    return (
+      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
+        <button
+          onClick={() => setShowStatusViewer(false)}
+          className="absolute top-4 right-4 text-white"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        <div className="w-full max-w-md">
+          {/* Progress Bars */}
+          <div className="flex gap-1 mb-4 px-4">
+            {selectedStatus.statuses.map((_, idx) => (
+              <div
+                key={idx}
+                className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden"
+              >
+                <div
+                  className={`h-full bg-white transition-all duration-[5000ms] ease-linear
+                    ${idx === currentIndex ? "w-full" : idx < currentIndex ? "w-full" : "w-0"}`}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* User Info */}
+          <div className="flex items-center gap-3 px-4 mb-4">
+            <img
+              src={selectedStatus.user?.profilepic || "/avatar.png"}
+              alt={selectedStatus.user?.fullName}
+              className="w-10 h-10 rounded-full"
+            />
+            <div className="text-white">
+              <p className="font-medium">{selectedStatus.user?.fullName}</p>
+              <p className="text-sm opacity-70">
+                {new Date(currentStatus.createdAt).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Status Content */}
+          <div className="relative aspect-[9/16] bg-black flex items-center justify-center">
+            {currentStatus.type === "image" ? (
+              <img
+                src={currentStatus.content}
+                alt="Status"
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : currentStatus.type === "video" ? (
+              <video
+                ref={statusRef}
+                src={currentStatus.content}
+                className="max-h-full max-w-full"
+                autoPlay
+                muted
+                onEnded={goToNextStatus} // Move to next status when video ends
+              />
+            ) : (
+              <p className="text-white text-center p-4">{currentStatus.content}</p>
+            )}
+          </div>
+
+          {/* Navigation Button */}
+          <div className="absolute bottom-4 w-full flex justify-center px-4">
+            <button
+              onClick={goToNextStatus}
+              className="bg-white text-black p-2 rounded-full"
+              disabled={currentIndex === selectedStatus.statuses.length - 1} // Disable if it's the last status
+            >
+              <ArrowRight className="w-6 h-6" /> {/* ArrowRight icon replaces the text */}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -102,12 +240,11 @@ const StatusView = () => {
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4">
       {/* Status Upload */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold">Status Updates</h2>
         <label className={`btn btn-circle btn-sm ${isUploading ? "loading" : ""}`}>
-          <Camera className="w-4 h-4" />
           <input
             type="file"
             className="hidden"
@@ -118,54 +255,67 @@ const StatusView = () => {
         </label>
       </div>
 
-      {/* Status List */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {statuses.map((status) => (
-          <div
-            key={status._id}
-            className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer"
-          >
-            {status.type === "image" ? (
-              <img
-                src={status.content}
-                alt="Status"
-                className="w-full h-full object-cover"
+      {/* My Status */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium mb-3">My Status</h3>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <img
+              src={authUser.profilepic || "/avatar.png"}
+              alt="My Status"
+              className="w-14 h-14 rounded-full"
+            />
+            <label className="absolute bottom-0 right-0 bg-primary rounded-full p-1 cursor-pointer">
+              <Plus className="w-4 h-4 text-primary-content" />
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*,video/*"
+                onChange={handleFileUpload}
+                disabled={isUploading}
               />
-            ) : status.type === "video" ? (
-              <video
-                src={status.content}
-                controls
-                className="w-full h-full object-cover"
-                onLoadedMetadata={handleVideoTimeout} // Set timeout when metadata is loaded
-              />
-            ) : (
-              <div className="w-full h-full bg-primary flex items-center justify-center p-4">
-                <p className="text-primary-content text-sm text-center">
-                  {status.content}
-                </p>
-              </div>
-            )}
-
-            {/* User Info Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white">
-              <p className="text-xs truncate">
-                {status.userId && status.userId.fullName
-                  ? status.userId.fullName
-                  : "Unknown User"}
-              </p>
-              <p className="text-[10px] opacity-70">
-                {new Date(status.createdAt).toLocaleTimeString()}
-              </p>
-            </div>
+            </label>
           </div>
-        ))}
+          <div>
+            <p className="font-medium">My Status</p>
+            <p className="text-sm text-base-content/70">Tap to add status update</p>
+          </div>
+        </div>
       </div>
 
-      {statuses.length === 0 && (
-        <div className="text-center py-8 text-base-content/60">
-          <p>No status updates yet</p>
+      {/* Recent Updates */}
+      <div>
+        <h3 className="text-sm font-medium mb-3">Recent Updates</h3>
+        <div className="space-y-4">
+          {statuses.map((userStatus) => (
+            <button
+              key={userStatus.userId}
+              className="flex items-center gap-3 w-full hover:bg-base-200 p-2 rounded-lg transition-colors"
+              onClick={() => viewStatus(userStatus)}
+            >
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full border-2 border-primary animate-pulse" />
+                <img
+                  src={userStatus.user?.profilepic || "/avatar.png"}
+                  alt={userStatus.user?.fullName}
+                  className="w-14 h-14 rounded-full"
+                />
+              </div>
+              <div className="text-left">
+                <p className="font-medium">{userStatus.user?.fullName}</p>
+                <p className="text-sm text-base-content/70">
+                  {/* Ensure that userStatus.statuses exists and has at least one status */}
+                  {userStatus.statuses && userStatus.statuses.length > 0
+                    ? new Date(userStatus.statuses[0].createdAt).toLocaleTimeString()
+                    : "No status"} {/* Fallback text when no status is available */}
+                </p>
+              </div>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
+
+      {showStatusViewer && <StatusViewer />}
     </div>
   );
 };

@@ -150,6 +150,97 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+
+  // removeMember: async (groupId, memberId) => {
+  //   try {
+  //     const res = await axiosInstance.post(`/messages/groups/${groupId}/remove-member`, {
+  //       memberId,
+  //     });
+      
+  //     // Update the groups list and selected user if it's the current group
+  //     set((state) => {
+  //       const updatedGroups = state.groups.map((group) =>
+  //         group._id === groupId ? res.data : group
+  //       );
+        
+  //       return {
+  //         groups: updatedGroups,
+  //         selectedUser: state.selectedUser?._id === groupId ? res.data : state.selectedUser,
+  //       };
+  //     });
+      
+  //     return res.data;
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // },
+
+  deleteGroup: async (groupId) => {
+    try {
+      // Make sure the backend deletes the group and responds with the necessary info.
+      const res = await axiosInstance.delete(`/messages/groups/${groupId}`);
+      
+      // Check the response to ensure deletion was successful
+      if (res.status === 200) {
+        // Remove the group from the state
+        set((state) => ({
+          groups: state.groups.filter((group) => group._id !== groupId),
+          selectedUser: state.selectedUser?._id === groupId ? null : state.selectedUser,
+        }));
+      }
+      
+    } catch (error) {
+      console.error("Error deleting group:", error);
+    }
+  },
+
+  removeMember: async (groupId, memberId) => {
+    try {
+      const res = await axiosInstance.post(`/messages/groups/${groupId}/remove-member`, {
+        memberId,
+      });
+      
+      // Update the groups list and selected user if it's the current group
+      set((state) => {
+        const updatedGroups = state.groups.map((group) =>
+          group._id === groupId ? res.data : group
+        );
+        
+        return {
+          groups: updatedGroups,
+          selectedUser: state.selectedUser?._id === groupId ? res.data : state.selectedUser,
+        };
+      });
+      
+      return res.data;
+    } catch (error) {
+      console.error("Error removing member:", error);
+      throw error;
+    }
+  },
+  
+  leaveGroup: async (groupId) => {
+    try {
+      const res = await axiosInstance.post(`/messages/groups/${groupId}/leave`);
+      
+      // If the user was successfully removed or the group was deleted
+      if (res.status === 200) {
+        set((state) => ({
+          // Remove the group from the list if it was deleted, or update it with the new member list
+          groups: state.groups.filter((group) => group._id !== groupId),
+          // Clear selected user if it was this group
+          selectedUser: state.selectedUser?._id === groupId ? null : state.selectedUser,
+        }));
+      }
+      
+      return res.data;
+    } catch (error) {
+      console.error("Error leaving group:", error);
+      throw error;
+    }
+  },
+
+  
   
 
   subscribeToMessages: () => {

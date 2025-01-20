@@ -10,7 +10,10 @@ import {
 } from "../controllers/message.controller.js";
 import {
   createGroup,
+  deleteGroup,
   getGroups,
+  leaveGroup,
+  removeMember,
 } from "../controllers/group.controller.js";
 
 const messageRoutes = express.Router();
@@ -26,4 +29,7 @@ messageRoutes.post("/forward", protectRoute, forwardMessage);
 // Group routes
 messageRoutes.post("/groups", protectRoute, createGroup);
 messageRoutes.get("/getgroups/messages", protectRoute, getGroups);
+messageRoutes.post("/groups/:groupId/remove-member", protectRoute, removeMember);
+messageRoutes.post("/groups/:groupId/leave", protectRoute, leaveGroup);
+messageRoutes.delete('/groups/:groupId', protectRoute, deleteGroup); // Add the deleteGroup route
 export default messageRoutes;

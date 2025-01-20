@@ -103,9 +103,7 @@ const Sidebar = ({ onViewChange, currentView }) => {
           </button>
           <button
             onClick={() => onViewChange("status")}
-            className={`flex-1 btn btn-sm ${
-              currentView === "status" ? "btn-primary" : "btn-ghost"
-            }`}
+            className={`flex-1 btn btn-sm ${currentView === "status" ? "btn-primary" : "btn-ghost"}`}
           >
             <Camera className="w-4 h-4" />
             <span className="hidden lg:inline">Status</span>
@@ -124,9 +122,7 @@ const Sidebar = ({ onViewChange, currentView }) => {
               />
               <span className="text-sm">Show online only</span>
             </label>
-            <span className="text-xs text-zinc-500">
-              ({onlineUsers.length - 1} online)
-            </span>
+            <span className="text-xs text-zinc-500">({onlineUsers.length - 1} online)</span>
           </div>
         )}
       </div>
@@ -136,7 +132,7 @@ const Sidebar = ({ onViewChange, currentView }) => {
           filteredUsers.map((user) => (
             <button
               key={user._id} // Ensure unique key
-              onClick={() => {setSelectedUser({ ...user, type: "direct" }), setgroupname("")}}
+              onClick={() => { setSelectedUser({ ...user, type: "direct" }), setgroupname("") }}
               className={`w-full p-3 flex items-center gap-3
                 hover:bg-base-300 transition-colors
                 ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
@@ -168,14 +164,15 @@ const Sidebar = ({ onViewChange, currentView }) => {
           groups?.map((group) => (
             <button
               key={group._id || group.tempId} // Ensure unique key for groups
-              onClick={() => {setSelectedUser({ ...group, type: "group" }), setgroupname(group.name)}}
+              onClick={() => { setSelectedUser({ ...group, type: "group" }), setgroupname(group.name) }}
               className={`w-full p-3 flex items-center gap-3
                 hover:bg-base-300 transition-colors
                 ${selectedUser?._id === group._id ? "bg-base-300 ring-1 ring-base-300" : ""}
               `}
             >
               <div className="relative mx-auto lg:mx-0">
-                {/* Removed Hash icon */}
+                {/* Added Group Icon */}
+                <Users className="w-5 h-5 text-zinc-600" /> {/* Group icon next to group name */}
               </div>
 
               <div className="hidden lg:block text-left min-w-0">
@@ -190,9 +187,7 @@ const Sidebar = ({ onViewChange, currentView }) => {
 
         {/* No results found for direct users */}
         {activeTab === "direct" && filteredUsers.length === 0 && (
-          <div className="text-center text-zinc-500 py-4">
-            No online users
-          </div>
+          <div className="text-center text-zinc-500 py-4">No online users</div>
         )}
 
         {/* No results found for groups */}
