@@ -1,11 +1,11 @@
-import { X, UserMinus, LogOut, Trash2 } from "lucide-react";
+import { X, UserMinus, LogOut, Trash2, UserPlus } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import toast from "react-hot-toast";
 
 const GroupMembersModal = ({ isOpen, onClose, group }) => {
   const { authUser } = useAuthStore();
-  const { removeMember, leaveGroup, deleteGroup, setSelectedUser } = useChatStore();
+  const { removeMember, exitGroup, deleteGroup, setSelectedUser, addMember, users } = useChatStore();
   const isAdmin = group?.admin?._id === authUser?._id;
 
   if (!isOpen || !group) return null;
@@ -29,19 +29,6 @@ const GroupMembersModal = ({ isOpen, onClose, group }) => {
     }
   };
 
-  const handleLeaveGroup = async () => {
-    try {
-      // Make the user leave the group
-      await leaveGroup(group._id);
-  
-      setSelectedUser(null); // Clear selected user after leaving the group
-      onClose();
-      toast.success("You have left the group");
-    } catch (error) {
-      toast.error("Failed to leave group");
-    }
-  };
-
   const handleDeleteGroup = async () => {
     if (!isAdmin) {
       toast.error("Only admin can delete the group");
@@ -51,12 +38,46 @@ const GroupMembersModal = ({ isOpen, onClose, group }) => {
     if (window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
       try {
         await deleteGroup(group._id);
-        setSelectedUser(null); // Clear selected user after deletion
+        setSelectedUser(null); 
         onClose();
         toast.success("Group deleted successfully");
       } catch (error) {
         toast.error("Failed to delete group");
       }
+    }
+  };
+
+  const handleexitGroup = async () => {
+    try {
+      await exitGroup(group._id);
+      toast.success("You have successfully left the group.");
+      onClose(); // Close the modal after leaving
+    } catch (error) {
+      toast.error("Failed to leave the group.");
+    }
+  };
+
+  const handleAddMember = async () => {
+    const memberName = prompt("Enter the name of the member to add:");
+
+    if (!memberName) {
+      toast.error("Please enter a valid name");
+      return;
+    }
+
+    // Find the user by name
+    const userToAdd = users.find(user => user.fullName.toLowerCase() === memberName.toLowerCase());
+
+    if (!userToAdd) {
+      toast.error("User not found");
+      return;
+    }
+
+    try {
+      await addMember(group._id, userToAdd._id);
+      toast.success("Member added successfully");
+    } catch (error) {
+      toast.error("Failed to add member");
     }
   };
 
@@ -121,16 +142,26 @@ const GroupMembersModal = ({ isOpen, onClose, group }) => {
           {/* Action Buttons */}
           <div className="space-y-2 pt-4">
             {isAdmin ? (
-              <button
-                onClick={handleDeleteGroup}
-                className="btn btn-error w-full"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Group
-              </button>
+              <>
+                {/* Add Member Button */}
+                <button
+                  onClick={handleAddMember}
+                  className="btn btn-primary w-full"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Member
+                </button>
+                <button
+                  onClick={handleDeleteGroup}
+                  className="btn btn-error w-full"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Group
+                </button>
+              </>
             ) : (
               <button
-                onClick={handleLeaveGroup}
+                onClick={handleexitGroup}
                 className="btn btn-error btn-outline w-full"
               >
                 <LogOut className="w-4 h-4 mr-2" />

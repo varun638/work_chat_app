@@ -19,7 +19,7 @@ const ChatContainer = () => {
     forwardMessage,
     users,
     joinGroup,
-    leaveGroup,
+    exitGroup,
     groupname
   } = useChatStore();
   const { authUser } = useAuthStore();
@@ -39,10 +39,10 @@ const ChatContainer = () => {
 
       // Leave group room when leaving the chat
       return () => {
-        leaveGroup(selectedUser._id);
+        exitGroup(selectedUser._id);
       };
     }
-  }, [selectedUser?._id, joinGroup, leaveGroup]);
+  }, [selectedUser?._id, joinGroup, exitGroup]);
   
   useEffect(() => {
     getMessages(selectedUser._id,groupname);

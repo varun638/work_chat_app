@@ -9,10 +9,11 @@ import {
   sendMessage 
 } from "../controllers/message.controller.js";
 import {
+  addMember,
   createGroup,
   deleteGroup,
+  exitGroup,
   getGroups,
-  leaveGroup,
   removeMember,
 } from "../controllers/group.controller.js";
 
@@ -30,6 +31,7 @@ messageRoutes.post("/forward", protectRoute, forwardMessage);
 messageRoutes.post("/groups", protectRoute, createGroup);
 messageRoutes.get("/getgroups/messages", protectRoute, getGroups);
 messageRoutes.post("/groups/:groupId/remove-member", protectRoute, removeMember);
-messageRoutes.post("/groups/:groupId/leave", protectRoute, leaveGroup);
+messageRoutes.post("/groups/:groupId/leave", protectRoute, exitGroup);
+messageRoutes.post("/groups/:groupId/add-member", protectRoute, addMember);
 messageRoutes.delete('/groups/:groupId', protectRoute, deleteGroup); // Add the deleteGroup route
 export default messageRoutes;

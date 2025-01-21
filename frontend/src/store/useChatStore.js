@@ -219,28 +219,69 @@ export const useChatStore = create((set, get) => ({
     }
   },
   
-  leaveGroup: async (groupId) => {
+  exitGroup: async (groupId) => {
     try {
-      const res = await axiosInstance.post(`/messages/groups/${groupId}/leave`);
+      // Check if the user is authenticated
+      const user = useAuthStore.getState().user;
+      if (!user || !user._id) {
+        throw new Error("User is not authenticated.");
+      }
       
-      // If the user was successfully removed or the group was deleted
+      const userId = user._id;  // Assuming user is authenticated
+  
+      // Call the backend to exit the group
+      const res = await axiosInstance.post(`/messages/groups/${groupId}/exit`, { memberId: userId });
+  
+      // If the backend confirms the group exit, update the state
       if (res.status === 200) {
         set((state) => ({
-          // Remove the group from the list if it was deleted, or update it with the new member list
           groups: state.groups.filter((group) => group._id !== groupId),
-          // Clear selected user if it was this group
-          selectedUser: state.selectedUser?._id === groupId ? null : state.selectedUser,
         }));
+  
+        // Optionally, reset the selected user if they are currently in the exited group
+        if (get().selectedUser?._id === groupId) {
+          set({ selectedUser: null });
+        }
+  
+        // Notify the user about the successful exit
+        toast.success("You have successfully exited the group.");
+  
+        // Optionally, emit a socket event to notify other users that this user has exited
+        const socket = useAuthStore.getState().socket;
+        if (socket) {
+          socket.emit("userExited", { groupId, memberId: userId });
+        }
       }
+    } catch (error) {
+      console.error("Error exiting group:", error);
+      toast.error("Failed to exit the group.");
+    }
+  },
+  
+
+  addMember: async (groupId, memberId) => {
+    try {
+      const res = await axiosInstance.post(`/messages/groups/${groupId}/add-member`, { memberId });
+  
+      // Update the group in the state immediately after adding the member
+      set((state) => {
+        const updatedGroups = state.groups.map((group) =>
+          group._id === groupId ? res.data : group
+        );
+        
+        return {
+          groups: updatedGroups,
+          selectedUser: state.selectedUser?._id === groupId ? res.data : state.selectedUser,
+        };
+      });
       
       return res.data;
     } catch (error) {
-      console.error("Error leaving group:", error);
+      console.error("Error adding member:", error);
       throw error;
     }
   },
 
-  
   
 
   subscribeToMessages: () => {
@@ -318,13 +359,6 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (socket) {
       socket.emit("joinGroup", groupId);
-    }
-  },
-
-  leaveGroup: (groupId) => {
-    const socket = useAuthStore.getState().socket;
-    if (socket) {
-      socket.emit("leaveGroup", groupId);
     }
   },
 
