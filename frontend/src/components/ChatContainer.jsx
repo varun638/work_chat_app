@@ -19,7 +19,6 @@ const ChatContainer = () => {
     forwardMessage,
     users,
     joinGroup,
-    exitGroup,
     groupname
   } = useChatStore();
   const { authUser } = useAuthStore();
@@ -37,15 +36,15 @@ const ChatContainer = () => {
     if (selectedUser?.type === 'group' && selectedUser?._id) {
       joinGroup(selectedUser._id);
 
-      // Leave group room when leaving the chat
-      return () => {
-        exitGroup(selectedUser._id);
-      };
+      // Removed exitGroup logic
+      // return () => {
+      //   exitGroup(selectedUser._id);
+      // };
     }
-  }, [selectedUser?._id, joinGroup, exitGroup]);
+  }, [selectedUser?._id, joinGroup]); // No need for exitGroup in dependency array
   
   useEffect(() => {
-    getMessages(selectedUser._id,groupname);
+    getMessages(selectedUser._id, groupname);
     subscribeToMessages();
     return () => unsubscribeFromMessages();
   }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
@@ -128,18 +127,21 @@ const ChatContainer = () => {
           >
             <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
-                {groupname?<img
-                  src={message.senderId === authUser._id
-                    ? authUser.profilepic || "/avatar.png"
-                    : message.profile || "/avatar.png"}
-                  alt="profile pic"
-                />:<img
-                  src={message.senderId === authUser._id
-                    ? authUser.profilepic || "/avatar.png"
-                    : selectedUser.profilepic || "/avatar.png"}
-                  alt="profile pic"
-                />}
-                
+                {groupname ? (
+                  <img
+                    src={message.senderId === authUser._id
+                      ? authUser.profilepic || "/avatar.png"
+                      : message.profile || "/avatar.png"}
+                    alt="profile pic"
+                  />
+                ) : (
+                  <img
+                    src={message.senderId === authUser._id
+                      ? authUser.profilepic || "/avatar.png"
+                      : selectedUser.profilepic || "/avatar.png"}
+                    alt="profile pic"
+                  />
+                )}
               </div>
             </div>
             <div className="chat-header mb-1">
@@ -149,32 +151,32 @@ const ChatContainer = () => {
               {message.image && (
                 <a href={message?.image} download>
                   {message?.image?.split("/")[4] === "raw" ? (
-                  <img
-                    src={"https://static.vecteezy.com/system/resources/previews/000/581/925/original/file-icon-vector-illustration.jpg"}
-                    alt="Attachment"
-                    className="w-[30px] h-[35px] rounded-md mb-2"
-                  />
-                ) : message?.image?.endsWith(".mp4") || message?.image?.endsWith(".mov") ? (
-                  <video
-                    src={message.image}
-                    controls
-                    className="sm:max-w-[200px] rounded-md mb-2"
-                    alt="Video Attachment"
-                  />
-                ) : message?.image?.endsWith(".mp3") || message?.image?.endsWith(".webm") ? (
-                  <audio
-                    src={message.image}
-                    controls
-                    className="sm:max-w-[200px] rounded-md mb-2"
-                    alt="Audio Attachment"
-                  />
-                ) : (
-                  <img
-                    src={message.image}
-                    alt="Attachment"
-                    className="sm:max-w-[200px] rounded-md mb-2"
-                  />
-                )}
+                    <img
+                      src={"https://static.vecteezy.com/system/resources/previews/000/581/925/original/file-icon-vector-illustration.jpg"}
+                      alt="Attachment"
+                      className="w-[30px] h-[35px] rounded-md mb-2"
+                    />
+                  ) : message?.image?.endsWith(".mp4") || message?.image?.endsWith(".mov") ? (
+                    <video
+                      src={message.image}
+                      controls
+                      className="sm:max-w-[200px] rounded-md mb-2"
+                      alt="Video Attachment"
+                    />
+                  ) : message?.image?.endsWith(".mp3") || message?.image?.endsWith(".webm") ? (
+                    <audio
+                      src={message.image}
+                      controls
+                      className="sm:max-w-[250px] rounded-md mb-2"
+                      alt="Audio Attachment"
+                    />
+                  ) : (
+                    <img
+                      src={message.image}
+                      alt="Attachment"
+                      className="sm:max-w-[200px] rounded-md mb-2"
+                    />
+                  )}
                 </a>
               )}
               {message.text && <p>{message.text}</p>}

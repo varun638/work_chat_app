@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 
 const GroupMembersModal = ({ isOpen, onClose, group }) => {
   const { authUser } = useAuthStore();
-  const { removeMember, exitGroup, deleteGroup, setSelectedUser, addMember, users } = useChatStore();
+  const { removeMember, deleteGroup, setSelectedUser, addMember, users, exitGroup } = useChatStore();
   const isAdmin = group?.admin?._id === authUser?._id;
 
   if (!isOpen || !group) return null;
@@ -29,6 +29,16 @@ const GroupMembersModal = ({ isOpen, onClose, group }) => {
     }
   };
 
+  const handleExitGroup = async () => {
+    if (window.confirm("Are you sure you want to exit this group?")) {
+      await exitGroup(group._id);  // Exit the group
+      setSelectedUser(null); 
+      onClose();  // Close the modal after exiting
+      toast.success("you are exited from group successfully");
+    }
+  };
+
+
   const handleDeleteGroup = async () => {
     if (!isAdmin) {
       toast.error("Only admin can delete the group");
@@ -44,16 +54,6 @@ const GroupMembersModal = ({ isOpen, onClose, group }) => {
       } catch (error) {
         toast.error("Failed to delete group");
       }
-    }
-  };
-
-  const handleexitGroup = async () => {
-    try {
-      await exitGroup(group._id);
-      toast.success("You have successfully left the group.");
-      onClose(); // Close the modal after leaving
-    } catch (error) {
-      toast.error("Failed to leave the group.");
     }
   };
 
@@ -161,11 +161,10 @@ const GroupMembersModal = ({ isOpen, onClose, group }) => {
               </>
             ) : (
               <button
-                onClick={handleexitGroup}
-                className="btn btn-error btn-outline w-full"
+                onClick={() => handleExitGroup(group._id)}
+                className="btn btn-warning w-full"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Leave Group
+                Exit Group
               </button>
             )}
           </div>

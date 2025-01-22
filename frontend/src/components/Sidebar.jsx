@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users, UserPlus, Camera } from "lucide-react"; // Removed Hash import
+import { Users, UserPlus, Camera } from "lucide-react";
 import GroupChatModal from "./GroupChatModal";
 
 const Sidebar = ({ onViewChange, currentView }) => {
@@ -15,24 +15,27 @@ const Sidebar = ({ onViewChange, currentView }) => {
     isUsersLoading,
     getGroups,
     setgroupname,
-    setcount,
+    groups, // Access `groups` from the store
   } = useChatStore();
   const { onlineUsers } = useAuthStore();
-  const [groups, setGroups] = useState([]); // Initialize as an empty array
+
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [activeTab, setActiveTab] = useState("direct"); // 'direct' or 'groups'
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // Search query for filtering
 
   useEffect(() => {
-    getUsers();
+    getUsers(); // Fetch users
   }, [getUsers]);
 
-  const getGroupData = async () => {
-    const data = await getGroups();
-    setGroups(data);
-  };
+  // Fetch groups data when switching to the "groups" tab
+  useEffect(() => {
+    if (activeTab === "groups") {
+      getGroups(); // Fetch groups from the server and update the store
+    }
+  }, [activeTab, getGroups]);
 
+  // Filtering users based on search query and online status
   const filteredUsers = users
     .filter((user) => {
       const matchesSearch =
@@ -42,6 +45,7 @@ const Sidebar = ({ onViewChange, currentView }) => {
     })
     .filter((user) => (showOnlineOnly ? onlineUsers.includes(user._id) : true));
 
+  // If users are loading, show the sidebar skeleton
   if (isUsersLoading) return <SidebarSkeleton />;
 
   return (
@@ -77,12 +81,10 @@ const Sidebar = ({ onViewChange, currentView }) => {
           <button
             onClick={() => {
               setActiveTab("direct");
-              setchatArea("false");
+              setchatArea(false);
               onViewChange("chat");
             }}
-            className={`flex-1 btn btn-sm ${
-              activeTab === "direct" && currentView === "chat" ? "btn-primary" : "btn-ghost"
-            }`}
+            className={`flex-1 btn btn-sm ${activeTab === "direct" && currentView === "chat" ? "btn-primary" : "btn-ghost"}`}
           >
             <Users className="w-4 h-4" />
             <span className="hidden lg:inline">Direct</span>
@@ -90,13 +92,10 @@ const Sidebar = ({ onViewChange, currentView }) => {
           <button
             onClick={() => {
               setActiveTab("groups");
-              setchatArea("true");
-              getGroupData();
+              setchatArea(true);
               onViewChange("chat");
             }}
-            className={`flex-1 btn btn-sm ${
-              activeTab === "groups" && currentView === "chat" ? "btn-primary" : "btn-ghost"
-            }`}
+            className={`flex-1 btn btn-sm ${activeTab === "groups" && currentView === "chat" ? "btn-primary" : "btn-ghost"}`}
           >
             <Users className="w-4 h-4" />
             <span className="hidden lg:inline">Groups</span>
@@ -132,11 +131,13 @@ const Sidebar = ({ onViewChange, currentView }) => {
           filteredUsers.map((user) => (
             <button
               key={user._id} // Ensure unique key
-              onClick={() => { setSelectedUser({ ...user, type: "direct" }), setgroupname("") }}
+              onClick={() => {
+                setSelectedUser({ ...user, type: "direct" });
+                setgroupname("");
+              }}
               className={`w-full p-3 flex items-center gap-3
                 hover:bg-base-300 transition-colors
-                ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
-              `}
+                ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}`}
             >
               <div className="relative mx-auto lg:mx-0">
                 <img
@@ -145,10 +146,7 @@ const Sidebar = ({ onViewChange, currentView }) => {
                   className="size-12 object-cover rounded-full"
                 />
                 {onlineUsers.includes(user._id) && (
-                  <span
-                    className="absolute bottom-0 right-0 size-3 bg-green-500 
-                    rounded-full ring-2 ring-zinc-900"
-                  />
+                  <span className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full ring-2 ring-zinc-900" />
                 )}
               </div>
 
@@ -164,15 +162,16 @@ const Sidebar = ({ onViewChange, currentView }) => {
           groups?.map((group) => (
             <button
               key={group._id || group.tempId} // Ensure unique key for groups
-              onClick={() => { setSelectedUser({ ...group, type: "group" }), setgroupname(group.name) }}
+              onClick={() => {
+                setSelectedUser({ ...group, type: "group" });
+                setgroupname(group.name);
+              }}
               className={`w-full p-3 flex items-center gap-3
                 hover:bg-base-300 transition-colors
-                ${selectedUser?._id === group._id ? "bg-base-300 ring-1 ring-base-300" : ""}
-              `}
+                ${selectedUser?._id === group._id ? "bg-base-300 ring-1 ring-base-300" : ""}`}
             >
               <div className="relative mx-auto lg:mx-0">
-                {/* Added Group Icon */}
-                <Users className="w-5 h-5 text-zinc-600" /> {/* Group icon next to group name */}
+                <Users className="w-12 h-12 p-2 bg-base-200 rounded-full" />
               </div>
 
               <div className="hidden lg:block text-left min-w-0">

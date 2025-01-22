@@ -31,7 +31,7 @@ messageRoutes.post("/forward", protectRoute, forwardMessage);
 messageRoutes.post("/groups", protectRoute, createGroup);
 messageRoutes.get("/getgroups/messages", protectRoute, getGroups);
 messageRoutes.post("/groups/:groupId/remove-member", protectRoute, removeMember);
-messageRoutes.post("/groups/:groupId/leave", protectRoute, exitGroup);
 messageRoutes.post("/groups/:groupId/add-member", protectRoute, addMember);
+messageRoutes.post("/groups/:groupId/exit", protectRoute, exitGroup);
 messageRoutes.delete('/groups/:groupId', protectRoute, deleteGroup); // Add the deleteGroup route
 export default messageRoutes;

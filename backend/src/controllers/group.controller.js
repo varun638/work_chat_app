@@ -88,39 +88,46 @@ export const removeMember = async (req, res) => {
 export const exitGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const {memberId} = req.user._id;  // Assuming the user is authenticated
-    const group = await Group.findOne({ _id: groupId });
+    const memberId = req.user._id; // Assuming the authenticated user wants to exit the group
 
+    // Find the group and verify if the user is a member
+    const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
 
     // Check if the user is a member of the group
-    if (!group.members.includes( memberId)) {
+    if (!group.members.includes(memberId)) {
       return res.status(400).json({ message: "You are not a member of this group" });
     }
 
-    // Remove the user from the group's members
-    group.members = group.members.filter(member => member.toString() !==  memberId.toString());
-
-    // If the group has no members left, you might choose to delete it or leave it
-    if (group.members.length === 0) {
-      await Group.findByIdAndDelete(groupId); // Delete the group if empty
-      return res.status(200).json({ message: "You have exited the group, and the group has been deleted" });
+    // If the user is an admin, we need to handle the case where the admin wants to exit
+    if (group.admin.toString() === memberId.toString()) {
+      return res.status(400).json({
+        message: "Admins cannot leave the group unless they transfer admin rights",
+      });
     }
 
-    // Save the updated group
+    // Remove the user from the group
+    group.members = group.members.filter((member) => member.toString() !== memberId.toString());
+
+    // If the group becomes empty after removing the user, you might want to delete the group or handle this case
+    if (group.members.length === 0) {
+      await Group.findByIdAndDelete(groupId); // Delete the group if no members are left
+      return res.status(200).json({ message: "Group was empty and deleted" });
+    }
+
     await group.save();
 
-    // Populate the group details and send the response
+    // Return updated group with populated members
     const updatedGroup = await Group.findById(groupId)
       .populate("members", "fullName email profilepic")
       .populate("admin", "fullName email profilepic");
 
     res.status(200).json(updatedGroup);
   } catch (error) {
-    console.error("Error in exitGroup:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error in exitGroup:", error.message || error);
+    res.status(500).json({ message: "Internal server error", error: error.message || error });
   }
 };
 

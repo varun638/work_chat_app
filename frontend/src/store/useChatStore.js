@@ -40,24 +40,6 @@ export const useChatStore = create((set, get) => ({
   },
 
   getMessages: async (userId, groupName) => {
-    // If groupName is provided, fetch group messages
-    // if (groupName) {
-    //   set({ isMessagesLoading: true });
-    //   try {
-    //     const res = await axiosInstance.get(`/messages/groups/${groupName}`);
-    //     set({
-    //       groupMessages: {
-    //         ...get().groupMessages,
-    //         [groupName]: res.data, // Store group messages for the selected group
-    //       },
-    //     });
-    //   } catch (error) {
-    //     toast.error(error.response?.data?.message || "Failed to fetch group messages");
-    //   } finally {
-    //     set({ isMessagesLoading: false });
-    //   }
-    // } else {
-      // Otherwise, fetch individual messages
       set({ isMessagesLoading: true });
       try {
         const res = await axiosInstance.get(`/messages/msg/${userId}/${groupName}`);
@@ -150,34 +132,8 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-
-  // removeMember: async (groupId, memberId) => {
-  //   try {
-  //     const res = await axiosInstance.post(`/messages/groups/${groupId}/remove-member`, {
-  //       memberId,
-  //     });
-      
-  //     // Update the groups list and selected user if it's the current group
-  //     set((state) => {
-  //       const updatedGroups = state.groups.map((group) =>
-  //         group._id === groupId ? res.data : group
-  //       );
-        
-  //       return {
-  //         groups: updatedGroups,
-  //         selectedUser: state.selectedUser?._id === groupId ? res.data : state.selectedUser,
-  //       };
-  //     });
-      
-  //     return res.data;
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // },
-
   deleteGroup: async (groupId) => {
     try {
-      // Make sure the backend deletes the group and responds with the necessary info.
       const res = await axiosInstance.delete(`/messages/groups/${groupId}`);
       
       // Check the response to ensure deletion was successful
@@ -219,45 +175,6 @@ export const useChatStore = create((set, get) => ({
     }
   },
   
-  exitGroup: async (groupId) => {
-    try {
-      // Check if the user is authenticated
-      const user = useAuthStore.getState().user;
-      if (!user || !user._id) {
-        throw new Error("User is not authenticated.");
-      }
-      
-      const userId = user._id;  // Assuming user is authenticated
-  
-      // Call the backend to exit the group
-      const res = await axiosInstance.post(`/messages/groups/${groupId}/exit`, { memberId: userId });
-  
-      // If the backend confirms the group exit, update the state
-      if (res.status === 200) {
-        set((state) => ({
-          groups: state.groups.filter((group) => group._id !== groupId),
-        }));
-  
-        // Optionally, reset the selected user if they are currently in the exited group
-        if (get().selectedUser?._id === groupId) {
-          set({ selectedUser: null });
-        }
-  
-        // Notify the user about the successful exit
-        toast.success("You have successfully exited the group.");
-  
-        // Optionally, emit a socket event to notify other users that this user has exited
-        const socket = useAuthStore.getState().socket;
-        if (socket) {
-          socket.emit("userExited", { groupId, memberId: userId });
-        }
-      }
-    } catch (error) {
-      console.error("Error exiting group:", error);
-      toast.error("Failed to exit the group.");
-    }
-  },
-  
 
   addMember: async (groupId, memberId) => {
     try {
@@ -278,6 +195,30 @@ export const useChatStore = create((set, get) => ({
       return res.data;
     } catch (error) {
       console.error("Error adding member:", error);
+      throw error;
+    }
+  },
+
+
+  exitGroup: async (groupId, memberId) => {
+    try {
+      const res = await axiosInstance.post(`/messages/groups/${groupId}/exit`, { memberId });
+  
+      // Update the group in the state immediately after adding the member
+      set((state) => {
+        const updatedGroups = state.groups.map((group) =>
+          group._id === groupId ? res.data : group
+        );
+        
+        return {
+          groups: updatedGroups,
+          selectedUser: state.selectedUser?._id === groupId ? res.data : state.selectedUser,
+        };
+      });
+      
+      return res.data;
+    } catch (error) {
+      console.error("Error exit member:", error);
       throw error;
     }
   },
@@ -321,6 +262,19 @@ export const useChatStore = create((set, get) => ({
       });
     }
     // Handle individual messages
+
+    socket.on("newGroupCreated", (newGroup) => {
+      set((state) => ({
+        groups: [...state.groups, newGroup]
+      }));
+    });
+  
+    // Listen for group deletion
+    socket.on("groupDeleted", (deletedGroupId) => {
+      set((state) => ({
+        groups: state.groups.filter(group => group._id !== deletedGroupId)
+      }));
+    });
     
 
     // Handle group messages
@@ -335,6 +289,8 @@ export const useChatStore = create((set, get) => ({
         }
       }));
     });
+
+    
 
     // Handle message deletion
     socket.on("messageDeleted", ({ messageId, groupId }) => {

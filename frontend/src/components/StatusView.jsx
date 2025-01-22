@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "../store/useAuthStore";
-import { Camera, Loader2, Plus, X, ArrowRight } from "lucide-react"; // Added ArrowRight icon
+import { Loader2, Plus, X, ArrowRight } from "lucide-react"; // Added ArrowRight icon
 import toast from "react-hot-toast";
 
 const StatusView = () => {
@@ -14,28 +14,34 @@ const StatusView = () => {
   const statusTimeoutRef = useRef(null);
 
   useEffect(() => {
-    fetchStatuses();
+    const fetchData = async () => {
+      await fetchStatuses();
+    };
+  
+    fetchData();
     const intervalId = setInterval(fetchStatuses, 30000);
-
+  
     if (socket) {
       socket.on("newStatus", (newStatus) => {
-        // Append the new status to the end of the list for the appropriate user
+        console.log("Received new status:", newStatus);
+  
         setStatuses((prev) => {
-          const updatedStatuses = [...prev];
+          const updatedStatuses = JSON.parse(JSON.stringify(prev));
+  
           const userIndex = updatedStatuses.findIndex(
             (group) => group.user._id === newStatus.userId._id
           );
   
           if (userIndex !== -1) {
-            updatedStatuses[userIndex].statuses.unshift(newStatus); // Add new status to the end
+            updatedStatuses[userIndex].statuses.unshift(newStatus);
           } else {
             updatedStatuses.unshift({
               user: newStatus.userId,
               statuses: [newStatus],
-            }); // If new user, create a new group for them at the end
+            });
           }
   
-          return updatedStatuses;
+          return updatedStatuses; // Trigger re-render
         });
       });
     }
@@ -43,9 +49,9 @@ const StatusView = () => {
     return () => {
       if (socket) socket.off("newStatus");
       clearInterval(intervalId);
-      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
     };
   }, [socket]);
+  
 
 
   const fetchStatuses = async () => {
@@ -244,15 +250,6 @@ const StatusView = () => {
       {/* Status Upload */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold">Status Updates</h2>
-        <label className={`btn btn-circle btn-sm ${isUploading ? "loading" : ""}`}>
-          <input
-            type="file"
-            className="hidden"
-            accept="image/*,video/*"
-            onChange={handleFileUpload}
-            disabled={isUploading}
-          />
-        </label>
       </div>
 
       {/* My Status */}
