@@ -14,35 +14,45 @@ const StatusView = () => {
   const statusTimeoutRef = useRef(null);
 
   useEffect(() => {
+    const fetchData = async () => {
+      await fetchStatuses();
+    };
+  
+    fetchData();
+    const intervalId = setInterval(fetchStatuses, 30000);
+  
     if (socket) {
-      socket.on("newStatus", ({ userId, statuses }) => {
-        setStatuses((prevStatuses) => {
-          const updatedStatuses = [...prevStatuses];
+      socket.on("newStatus", (newStatus) => {
+        console.log("Received new status:", newStatus);
+  
+        setStatuses((prev) => {
+          const updatedStatuses = JSON.parse(JSON.stringify(prev));
   
           const userIndex = updatedStatuses.findIndex(
-            (group) => group.user._id === userId
+            (group) => group.user._id === newStatus.userId._id
           );
   
           if (userIndex !== -1) {
-            // Replace the user's statuses with the updated list
-            updatedStatuses[userIndex].statuses = statuses;
+            // Adding new status at the beginning of the user statuses array
+            updatedStatuses[userIndex].statuses.unshift(newStatus);
           } else {
-            // Add the new user with their statuses
-            updatedStatuses.push({
-              user: statuses[0].userId, // Assuming statuses array is not empty
-              statuses,
+            // If user doesn't exist, create a new group
+            updatedStatuses.unshift({
+              user: newStatus.userId,
+              statuses: [newStatus],
             });
           }
   
-          return updatedStatuses;
+          return updatedStatuses; // Trigger re-render
         });
       });
-  
-      return () => {
-        socket.off("newStatus");
-      };
     }
-  }, [socket]);
+  
+    return () => {
+      if (socket) socket.off("newStatus");
+      clearInterval(intervalId);
+    };
+  }, [selectedStatus]);
   
 
 
@@ -62,13 +72,14 @@ const StatusView = () => {
         acc[userId].statuses.push(status);
         return acc;
       }, {});
-      setStatuses(Object.values(groupedStatuses));
+      setStatuses(Object.values(groupedStatuses)); // Update the statuses state
     } catch (error) {
       toast.error("Failed to fetch statuses");
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
