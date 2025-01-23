@@ -9,28 +9,47 @@ export const createStatus = async (req, res) => {
 
     let statusContent = content;
 
+    // Handle image or video upload
     if (type === "image" || type === "video") {
-      const uploadResponse = await cloudinary.uploader.upload(content,{resource_type: 'auto'});
+      const uploadResponse = await cloudinary.uploader.upload(content, {
+        resource_type: "auto",
+      });
       statusContent = uploadResponse.secure_url;
     }
 
+    // Create and save the new status
     const newStatus = new Status({
       userId,
       content: statusContent,
-      type
+      type,
     });
 
     await newStatus.save();
 
-    // Notify all users about new status
-    io.emit("newStatus", newStatus);
+    // Fetch all statuses for the user
+    const userStatuses = await Status.find({ userId }).sort("-createdAt");
 
+    // Populate the user details for all statuses
+    const populatedStatuses = await Promise.all(
+      userStatuses.map((status) =>
+        status.populate("userId", "fullName profilepic")
+      )
+    );
+
+    // Notify all users with the combined list (old + new statuses)
+    io.emit("newStatus", {
+      userId,
+      statuses: populatedStatuses,
+    });
+
+    // Respond with the new status
     res.status(201).json(newStatus);
   } catch (error) {
     console.log("Error in createStatus controller:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 export const getStatuses = async (req, res) => {
   try {

@@ -14,42 +14,34 @@ const StatusView = () => {
   const statusTimeoutRef = useRef(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      await fetchStatuses();
-    };
-  
-    fetchData();
-    const intervalId = setInterval(fetchStatuses, 30000);
-  
     if (socket) {
-      socket.on("newStatus", (newStatus) => {
-        console.log("Received new status:", newStatus);
-  
-        setStatuses((prev) => {
-          const updatedStatuses = JSON.parse(JSON.stringify(prev));
+      socket.on("newStatus", ({ userId, statuses }) => {
+        setStatuses((prevStatuses) => {
+          const updatedStatuses = [...prevStatuses];
   
           const userIndex = updatedStatuses.findIndex(
-            (group) => group.user._id === newStatus.userId._id
+            (group) => group.user._id === userId
           );
   
           if (userIndex !== -1) {
-            updatedStatuses[userIndex].statuses.unshift(newStatus);
+            // Replace the user's statuses with the updated list
+            updatedStatuses[userIndex].statuses = statuses;
           } else {
-            updatedStatuses.unshift({
-              user: newStatus.userId,
-              statuses: [newStatus],
+            // Add the new user with their statuses
+            updatedStatuses.push({
+              user: statuses[0].userId, // Assuming statuses array is not empty
+              statuses,
             });
           }
   
-          return updatedStatuses; // Trigger re-render
+          return updatedStatuses;
         });
       });
-    }
   
-    return () => {
-      if (socket) socket.off("newStatus");
-      clearInterval(intervalId);
-    };
+      return () => {
+        socket.off("newStatus");
+      };
+    }
   }, [socket]);
   
 
